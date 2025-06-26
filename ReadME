@@ -1,1 +1,7 @@
-ReadMe
+Scheduler Web Page
+==================
+
+Open `index.html` in a web browser to manage your weekly schedule.
+Use the buttons at the top of the page to add or remove employees and
+create new shifts. After assigning employees and entering projected
+sales, click **Calculate** to view labor costs and percentages.
