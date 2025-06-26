@@ -1,1 +1,12 @@
-ReadMe
+Scheduler Web Page
+==================
+
+Open `index.html` in a web browser to manage your weekly schedule.
+Use the buttons at the top of the page to add or remove employees,
+assign additional positions or pay rates, and create new shifts.
+The right side of the page lists every employee with their positions
+and pay rates. After assigning employees and entering projected sales,
+click **Calculate** to view labor costs and percentages. The "Labor
+$/hr" rows show the sum of hourly pay rates for all assigned employees
+in the AM and PM sections, while "Projected Labor ($)" shows total
+costs for each day.

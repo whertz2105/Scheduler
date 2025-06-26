@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Work Scheduler</title>
+  <style>
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+    th { background: #f0f0f0; }
+    .actions { margin-bottom: 10px; }
+    #container { display: flex; }
+    #schedule { flex: 3; }
+    #employees { flex: 1; margin-left: 20px; }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button onclick="addEmployee()">Add Employee</button>
+    <button onclick="removeEmployee()">Remove Employee</button>
+    <button onclick="addPosition()">Add Position/Update Pay</button>
+    <button onclick="addShift()">Add Shift</button>
+  </div>
+  <div id="container">
+    <div id="schedule"></div>
+    <div id="employees"></div>
+  </div>
+  <script>
+    const DAYS = ["Wednesday","Thursday","Friday","Saturday","Sunday","Monday","Tuesday"];
+    const employees = {}; // {name:{job:rate}}
+    const shifts = [];    // [{name,start,end,hours,job,period}]
+    const assignments = {}; // {'shiftName-dayIndex': employeeName}
+
+    function buildTable() {
+      const container = document.getElementById('schedule');
+      container.innerHTML = '';
+      const table = document.createElement('table');
+      let header = '<tr><th>Shifts</th>';
+      DAYS.forEach(day => header += `<th>${day}</th>`);
+      header += '</tr>';
+      table.innerHTML = header;
+
+      const amShifts = shifts.filter(s => s.period === 'AM');
+      const pmShifts = shifts.filter(s => s.period === 'PM');
+
+      function buildRows(group) {
+        group.forEach(shift => {
+          const row = document.createElement('tr');
+          const label = `${shift.name}<br>${shift.start}-${shift.end}`;
+          row.innerHTML = `<td>${label}</td>`;
+          DAYS.forEach((day, idx) => {
+            const key = `${shift.name}-${idx}`;
+            const select = document.createElement('select');
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '';
+            select.appendChild(opt);
+            Object.entries(employees).forEach(([name, jobs]) => {
+              if (jobs[shift.job] !== undefined) {
+                const o = document.createElement('option');
+                o.value = name;
+                o.textContent = name;
+                if (assignments[key] === name) o.selected = true;
+                select.appendChild(o);
+              }
+            });
+            select.onchange = () => { assignments[key] = select.value; };
+            const td = document.createElement('td');
+            td.appendChild(select);
+            row.appendChild(td);
+          });
+          table.appendChild(row);
+        });
+        const line = document.createElement('tr');
+        line.innerHTML = '<td><strong>Labor $/hr</strong></td>';
+        DAYS.forEach((day, idx) => {
+          const cell = document.createElement('td');
+          cell.id = `labor-${group===amShifts?'am':'pm'}-${idx}`;
+          cell.textContent = '0';
+          line.appendChild(cell);
+        });
+        table.appendChild(line);
+      }
+
+      if (amShifts.length) buildRows(amShifts);
+      if (pmShifts.length) buildRows(pmShifts);
+
+      const footerRows = ['Projected Sales','Projected Labor ($)','Projected % Labor'];
+      footerRows.forEach((label, rowIndex) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${label}</td>`;
+        DAYS.forEach((day, idx) => {
+          const cell = document.createElement('td');
+          if (rowIndex === 0) {
+            cell.innerHTML = `<input type="number" min="0" id="sales-${idx}" value="0" style="width:80px;">`;
+          } else {
+            cell.id = (rowIndex === 1 ? 'labor-total-' : 'labor-percent-') + idx;
+            cell.textContent = '0';
+          }
+          row.appendChild(cell);
+        });
+        table.appendChild(row);
+      });
+
+      const calcRow = document.createElement('tr');
+      const calcCell = document.createElement('td');
+      calcCell.colSpan = DAYS.length + 1;
+      const btn = document.createElement('button');
+      btn.textContent = 'Calculate';
+      btn.onclick = calculate;
+      calcCell.appendChild(btn);
+      calcRow.appendChild(calcCell);
+      table.appendChild(calcRow);
+
+      container.appendChild(table);
+      buildEmployeeTable();
+    }
+
+    function calculate() {
+      DAYS.forEach((d, idx) => {
+        const am = document.getElementById(`labor-am-${idx}`); if (am) am.textContent = '0';
+        const pm = document.getElementById(`labor-pm-${idx}`); if (pm) pm.textContent = '0';
+        document.getElementById(`labor-total-${idx}`).textContent = '0';
+        document.getElementById(`labor-percent-${idx}`).textContent = '0';
+      });
+
+      shifts.forEach(shift => {
+        DAYS.forEach((day, idx) => {
+          const key = `${shift.name}-${idx}`;
+          const emp = assignments[key];
+          if (emp) {
+            const rate = employees[emp][shift.job];
+            const cost = rate * shift.hours;
+            const period = shift.period === 'AM' ? 'am' : 'pm';
+            const cell = document.getElementById(`labor-${period}-${idx}`);
+            // Labor $/hr should sum hourly rates, not total cost
+            cell.textContent = (parseFloat(cell.textContent) + rate).toFixed(2);
+            const totalCell = document.getElementById(`labor-total-${idx}`);
+            totalCell.textContent = (parseFloat(totalCell.textContent) + cost).toFixed(2);
+          }
+        });
+      });
+
+      DAYS.forEach((d, idx) => {
+        const sales = parseFloat(document.getElementById(`sales-${idx}`).value) || 0;
+        const labor = parseFloat(document.getElementById(`labor-total-${idx}`).textContent) || 0;
+        const percent = sales > 0 ? ((labor / sales) * 100).toFixed(2) : '0';
+      document.getElementById(`labor-percent-${idx}`).textContent = percent;
+      });
+    }
+
+    function buildEmployeeTable() {
+      const container = document.getElementById('employees');
+      container.innerHTML = '';
+      const table = document.createElement('table');
+      let header = '<tr><th>Employee</th><th>Job</th><th>Pay Rate</th></tr>';
+      table.innerHTML = header;
+      Object.entries(employees).forEach(([name, jobs]) => {
+        Object.entries(jobs).forEach(([job, rate]) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${name}</td><td>${job}</td><td>${rate.toFixed(2)}</td>`;
+          table.appendChild(row);
+        });
+      });
+      container.appendChild(table);
+    }
+
+    function addEmployee() {
+      const name = prompt('Employee name:');
+      if (!name) return;
+      const job = prompt('Job title:');
+      if (!job) return;
+      const rate = parseFloat(prompt('Pay rate:'));
+      if (isNaN(rate)) return;
+      if (!employees[name]) employees[name] = {};
+      employees[name][job] = rate;
+      buildTable();
+    }
+
+    function addPosition() {
+      const name = prompt('Employee name:');
+      if (!name || !employees[name]) return;
+      const job = prompt('Job title to add/update:');
+      if (!job) return;
+      const rate = parseFloat(prompt('Pay rate:'));
+      if (isNaN(rate)) return;
+      employees[name][job] = rate;
+      buildTable();
+    }
+
+    function removeEmployee() {
+      const names = Object.keys(employees);
+      if (!names.length) return;
+      const name = prompt('Employee to remove:\n' + names.join(', '));
+      if (employees[name]) {
+        delete employees[name];
+        buildTable();
+      }
+    }
+
+    function addShift() {
+      const name = prompt('Shift name:');
+      if (!name) return;
+      const job = prompt('Job title for this shift:');
+      if (!job) return;
+      const start = prompt('Start time (e.g. 06:00):');
+      const end = prompt('End time (e.g. 14:00):');
+      const hours = parseFloat(prompt('Hours:')) || 0;
+      const period = prompt('AM or PM?', 'AM');
+      shifts.push({name, job, start, end, hours, period: (period && period.toUpperCase()==='PM')?'PM':'AM'});
+      buildTable();
+    }
+
+    buildTable();
+  </script>
+</body>
+</html>
