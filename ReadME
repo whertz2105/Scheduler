@@ -10,3 +10,6 @@ click **Calculate** to view labor costs and percentages. The "Labor
 $/hr" rows show the sum of hourly pay rates for all assigned employees
 in the AM and PM sections, while "Projected Labor ($)" shows total
 costs for each day.
+
+The embedded script avoids modern JavaScript features so the page works
+even in older browsers.
